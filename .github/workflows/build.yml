@@ -1,0 +1,257 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Publish
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 🏷️*
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Compile
+        run: |
+          mkdir dist
+          dart pub get
+          dart compile exe bin/esp32_ai.dart -o dist/backend-windows.exe
+
+      - name: Upload Dist Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-windows
+          path: dist/backend-windows.exe
+
+  linux_amd64:
+    runs-on: ubuntu-latest
+    steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            submodules: true
+        - name: Setup Dart
+          uses: dart-lang/setup-dart@v1
+  
+        - name: Compile
+          run: |
+            mkdir dist
+            dart pub get
+            dart compile exe bin/esp32_ai.dart -o dist/backend-linux-amd64
+  
+        - name: Upload Dist Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: backend-linux-amd64
+            path: dist/backend-linux-amd64
+
+
+  linux_arm64:
+    runs-on: ubuntu-latest
+    steps:
+
+        - name: Checkout
+          uses: actions/checkout@v4
+
+
+        - name: Install Dependencies
+          run: |
+            sudo apt update
+            sudo apt install aria2 unzip -y
+            aria2c https://storage.googleapis.com/dart-archive/channels/beta/release/3.7.0-209.1.beta/sdk/dartsdk-linux-arm64-release.zip
+            unzip dartsdk-linux-arm64-release.zip
+            rm dartsdk-linux-arm64-release.zip
+
+
+        - name: Use ARM64 Environment to Compile
+          uses: uraimo/run-on-arch-action@v2
+          with:
+            arch: aarch64
+            distro: ubuntu20.04
+            run: |
+              export PATH=$PATH:$GITHUB_WORKSPACE/dart-sdk/bin
+              mkdir dist
+              dart pub get
+              dart compile exe bin/esp32_ai.dart -o dist/backend-linux-arm64
+
+
+
+        - name: Upload Dist Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: backend-linux-arm64
+            path: dist/backend-linux-arm64
+
+
+  linux_arm:
+    runs-on: ubuntu-latest
+    steps:
+
+        - name: Checkout
+          uses: actions/checkout@v4
+
+
+        - name: Install Dependencies
+          run: |
+            sudo apt update
+            sudo apt install aria2 unzip -y
+            aria2c https://storage.flutter-io.cn/dart-archive/channels/beta/release/3.7.0-209.1.beta/sdk/dartsdk-linux-arm-release.zip
+            unzip dartsdk-linux-arm-release.zip
+            rm dartsdk-linux-arm-release.zip
+
+
+        - name: Use ARM Environment to Compile
+          uses: uraimo/run-on-arch-action@v2
+          with:
+            arch: armv7
+            distro: ubuntu20.04
+            run: |
+              export PATH=$PATH:$GITHUB_WORKSPACE/dart-sdk/bin
+              mkdir dist
+              dart pub get
+              dart compile exe bin/esp32_ai.dart -o dist/backend-linux-arm
+
+
+
+        - name: Upload Dist Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: backend-linux-arm
+            path: dist/backend-linux-arm
+
+  macos:
+    runs-on: macos-15-intel
+
+    steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            submodules: true
+        - name: Setup Dart
+          uses: dart-lang/setup-dart@v1
+
+        - name: Compile
+          run: |
+            mkdir dist
+            dart pub get
+            dart compile exe bin/esp32_ai.dart -o dist/backend-macos
+
+        - name: Upload Dist Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: backend-macos
+            path: dist/backend-macos
+
+  macos_M1:
+    runs-on: macos-latest
+
+    steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            submodules: true
+        - name: Setup Dart
+          uses: dart-lang/setup-dart@v1
+
+        - name: Compile
+          run: |
+            mkdir dist
+            dart pub get
+            dart compile exe bin/esp32_ai.dart -o dist/backend-macos-M1
+
+        - name: Upload Dist Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: backend-macos-M1
+            path: dist/backend-macos-M1
+
+
+  publish_releases:
+    name: publish
+    runs-on: ubuntu-latest
+    needs:
+      - windows
+      - linux_amd64
+      - linux_arm64
+      - linux_arm
+      - macos
+      - macos_M1
+
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Fetch Version
+        run: |
+          sudo snap install yq
+          nbgui_version=$(yq eval '.version' pubspec.yaml)
+          echo "NBGUI_VERSION=$nbgui_version" >> $GITHUB_ENV
+
+      - name: Download Artifact (Windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-windows"
+          path: dist/
+
+
+      - name: Download Artifact (Linux amd64)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-linux-amd64"
+          path: dist/
+
+      - name: Download Artifact (MacOS)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-macos"
+          path: dist/
+
+      - name: Download Artifact (MacOS M1)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-macos-M1"
+          path: dist/
+
+      - name: Download Artifact (Linux arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-linux-arm64"
+          path: dist/
+
+      - name: Download Artifact (Linux arm)
+        uses: actions/download-artifact@v4
+        with:
+          name: "backend-linux-arm"
+          path: dist/
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.NBGUI_VERSION }}
+          body_path: CHANGELOG.md
+          prerelease: false
+          draft: false
+          generate_release_notes: true
+          token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+          files: |
+            dist/backend-windows.exe
+            dist/backend-linux-amd64
+            dist/backend-linux-arm64
+            dist/backend-linux-arm
+            dist/backend-macos
+            dist/backend-macos-M1
+
+
